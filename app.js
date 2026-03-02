@@ -18,9 +18,11 @@ const platforms = [...new Set(chartData.map(r => r.platform))];
 
 years.forEach(m => yearSelect.add(new Option(m, m)));
 platforms.forEach(h => platformSelect.add(new Option(h, h)));
+platformSelect.add(new Option("E-Sports", "E-Sports"));
 
 yearSelect.value = years[0];
 platformSelect.value = platforms[0];
+
 
 // Preview first 6 rows
 dataPreview.textContent = JSON.stringify(chartData.slice(0, 6), null, 2);
@@ -28,7 +30,7 @@ dataPreview.textContent = JSON.stringify(chartData.slice(0, 6), null, 2);
 // --- Main render ---
 renderBtn.addEventListener("click", () => {
   const chartType = chartTypeSelect.value;
-  const year = yearSelect.value;
+  const year = Number(yearSelect.value);
   const platform = platformSelect.value;
   const metric = metricSelect.value;
 
@@ -51,11 +53,15 @@ function buildConfig(type, { year, platform, metric }) {
   return barByPlatforms(year, metric);
 }
 
+function getRowsForPlatform(platform) {
+  if (platform === "E-Sports") return chartData.filter(r => !!r.esports);
+  return chartData.filter(r => r.platform === platform);
+}
+
 // Task A: BAR — compare Platformss for a given year
 function barByPlatforms(year, metric) {
   const rows = chartData.filter(r => r.year === year);
-
-  const labels = rows.map(r => r.platform);
+  const labels = [...new Set(rows.map(r => r.platform))];
   const values = rows.map(r => r[metric]);
 
   return {
@@ -82,8 +88,8 @@ function barByPlatforms(year, metric) {
 
 // Task B: LINE — trend over time for one Platforms (2 datasets)
 function lineOverTime(platform, metrics) {
-  const rows = chartData.filter(r => r.platform === platform);
-  
+  const rows = getRowsForPlatform(platform);
+
   const labels = rows.map(r => r.year);
 
   const datasets = metrics.map(m => ({
@@ -109,7 +115,7 @@ function lineOverTime(platform, metrics) {
 
 // SCATTER — relationship between temperature and trips
 function scatterTripsVsTemp(platform) {
-  const rows = chartData.filter(r => r.platform === platform);
+  const rows = getRowsForPlatform(platform);
 
   const points = rows.map(r => ({ x: r.tempC, y: r.trips }));
 
@@ -135,20 +141,27 @@ function scatterTripsVsTemp(platform) {
 
 // DOUGHNUT — member vs casual share for one platform + year
 function doughnutMemberVsCasual(year, platform) {
-  const row = chartData.find(r => r.year === year && r.platform === platform);
+  const rows = getRowsForPlatform(platform).filter(r => r.year === year);
 
-  const member = Math.round(row.memberShare * 100);
-  const casual = 100 - member;
+  const regionSums = rows.reduce((acc, r) => {
+    const region = r.region;
+    const rev = r.revenueUSD;
+    acc[region] = (acc[region] || 0) + rev;
+    return acc;
+  }, {});
+
+  const labels = Object.keys(regionSums);
+  const data = labels.map(l => regionSums[l]);
 
   return {
     type: "doughnut",
     data: {
-      labels: ["Members (%)", "Casual (%)"],
-      datasets: [{ label: "Rider mix", data: [member, casual] }]
+      labels,
+      datasets: [{ label: "Revenue (USD)", data }]
     },
     options: {
       plugins: {
-        title: { display: true, text: `Rider mix: ${platform} (${year})` }
+        title: { display: true, text: `Revenue by region: ${platform} (${year})` }
       }
     }
   };
