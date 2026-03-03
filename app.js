@@ -46,7 +46,7 @@ renderBtn.addEventListener("click", () => {
 // --- Students: you’ll edit / extend these functions ---
 function buildConfig(type, { year, platform, metric }) {
   if (type === "bar") return barByPlatforms(year, metric);
-  if (type === "line") return lineOverTime(platform, ["trips", "revenueUSD"]);
+  if (type === "line") return lineOverTime(platform, ["unitsM", "revenueUSD"]);
   if (type === "scatter") return scatterTripsVsTemp(platform);
   if (type === "doughnut") return doughnutMemberVsCasual(year, platform);
   if (type === "radar") return radarComparePlatformss(year);
@@ -61,8 +61,19 @@ function getRowsForPlatform(platform) {
 // Task A: BAR — compare Platformss for a given year
 function barByPlatforms(year, metric) {
   const rows = chartData.filter(r => r.year === year);
-  const labels = [...new Set(rows.map(r => r.platform))];
-  const values = rows.map(r => r[metric]);
+
+  const platformSums = rows.reduce((acc, r) => {
+    const p = r.platform;
+    const val = r[metric];
+    acc[p] = (acc[p] || 0) + val;
+    if (r.esports) {
+      acc['E-Sports'] = (acc['E-Sports'] || 0) + val;
+    }
+    return acc;
+  }, {});
+
+  const labels = Object.keys(platformSums);
+  const values = labels.map(l => platformSums[l]);
 
   return {
     type: "bar",
@@ -90,11 +101,20 @@ function barByPlatforms(year, metric) {
 function lineOverTime(platform, metrics) {
   const rows = getRowsForPlatform(platform);
 
-  const labels = rows.map(r => r.year);
+  const byYear = rows.reduce((acc, r) => {
+    const y = r.year;
+    acc[y] = acc[y] || { year: y };
+    metrics.forEach(m => {
+      acc[y][m] = (acc[y][m] || 0) +  r[m];
+    });
+    return acc;
+  }, {});
+
+  const labels = Object.keys(byYear).map(k => Number(k)).sort((a,b) => a-b);
 
   const datasets = metrics.map(m => ({
     label: m,
-    data: rows.map(r => r[m])
+    data: labels.map(y => byYear[y][m] || 0)
   }));
 
   return {
@@ -117,23 +137,23 @@ function lineOverTime(platform, metrics) {
 function scatterTripsVsTemp(platform) {
   const rows = getRowsForPlatform(platform);
 
-  const points = rows.map(r => ({ x: r.tempC, y: r.trips }));
+  const points = rows.map(r => ({ x: typeof r.unitsM === 'number' ? r.unitsM : 0, y: typeof r.revenueUSD === 'number' ? r.revenueUSD : 0 }));
 
   return {
     type: "scatter",
     data: {
       datasets: [{
-        label: `Trips vs Temp (${platform})`,
+        label: `Units vs Revenue (${platform})`,
         data: points
       }]
     },
     options: {
       plugins: {
-        title: { display: true, text: `Does temperature affect trips? (${platform})` }
+        title: { display: true, text: `Units (M) vs Revenue (USD): ${platform}` }
       },
       scales: {
-        x: { title: { display: true, text: "Temperature (C)" } },
-        y: { title: { display: true, text: "Trips" } }
+        x: { title: { display: true, text: "Units (M)" } },
+        y: { title: { display: true, text: "Revenue (USD)" } }
       }
     }
   };
@@ -170,13 +190,21 @@ function doughnutMemberVsCasual(year, platform) {
 // RADAR — compare Platformss across multiple metrics for one year
 function radarComparePlatformss(year) {
   const rows = chartData.filter(r => r.year === year);
-
-  const metrics = ["trips", "revenueUSD", "avgDurationMin", "incidents"];
+  const metrics = ["unitsM", "revenueUSD", "reviewScore", "priceUSD"];
   const labels = metrics;
 
-  const datasets = rows.map(r => ({
-    label: r.platform,
-    data: metrics.map(m => r[m])
+  const perPlatform = rows.reduce((acc, r) => {
+    const p = r.platform;
+    acc[p] = acc[p] || {};
+    metrics.forEach(m => {
+      acc[p][m] = (acc[p][m] || 0) + r[m];
+    });
+    return acc;
+  }, {});
+
+  const datasets = Object.keys(perPlatform).map(p => ({
+    label: p,
+    data: metrics.map(m => perPlatform[p][m] || 0)
   }));
 
   return {
