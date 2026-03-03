@@ -58,13 +58,25 @@ function getRowsForPlatform(platform) {
   return chartData.filter(r => r.platform === platform);
 }
 
+// units10K = units in thousands (unitsM * 1000)
+function getMetricValue(row, metric) {
+  if (!row) return 0;
+  if (metric === "units10K") {
+    return typeof row.unitsM === 'number' ? row.unitsM * 100 : 0;
+  }
+  if (metric === "unitsM") {
+    return typeof row.unitsM === 'number' ? row.unitsM : 0;
+  }
+  return typeof row[metric] === 'number' ? row[metric] : 0;
+}
+
 // Task A: BAR — compare Platformss for a given year
 function barByPlatforms(year, metric) {
   const rows = chartData.filter(r => r.year === year);
 
   const platformSums = rows.reduce((acc, r) => {
-    const p = r.platform;
-    const val = r[metric];
+    const p = r.platform || 'Unknown';
+    const val = getMetricValue(r, metric);
     acc[p] = (acc[p] || 0) + val;
     if (r.esports) {
       acc['E-Sports'] = (acc['E-Sports'] || 0) + val;
@@ -90,7 +102,7 @@ function barByPlatforms(year, metric) {
         title: { display: true, text: `Platform comparison (${year})` }
       },
       scales: {
-        y: { title: { display: true, text: metric } },
+        y: { title: { display: true, text: metric === 'units10K' ? 'Units (10 thousands)' : metric } },
         x: { title: { display: true, text: "Platforms" } }
       }
     }
@@ -105,7 +117,7 @@ function lineOverTime(platform, metrics) {
     const y = r.year;
     acc[y] = acc[y] || { year: y };
     metrics.forEach(m => {
-      acc[y][m] = (acc[y][m] || 0) +  r[m];
+      acc[y][m] = (acc[y][m] || 0) + getMetricValue(r, m);
     });
     return acc;
   }, {});
@@ -190,21 +202,32 @@ function doughnutMemberVsCasual(year, platform) {
 // RADAR — compare Platformss across multiple metrics for one year
 function radarComparePlatformss(year) {
   const rows = chartData.filter(r => r.year === year);
-  const metrics = ["unitsM", "revenueUSD", "reviewScore", "priceUSD"];
+
+  const unitsMetric = metricSelect && metricSelect.value === 'units10K' ? 'units10K' : 'unitsM';
+  const metrics = [unitsMetric, "revenueUSD", "reviewScore", "priceUSD"];
   const labels = metrics;
 
   const perPlatform = rows.reduce((acc, r) => {
-    const p = r.platform;
-    acc[p] = acc[p] || {};
+    const p = r.platform || 'Unknown';
+    acc[p] = acc[p] || { sums: {}, counts: {} };
     metrics.forEach(m => {
-      acc[p][m] = (acc[p][m] || 0) + r[m];
+      const val = getMetricValue(r, m);
+      const has = (m === 'units10K' || m === 'unitsM') ? typeof r.unitsM === 'number' : typeof r[m] === 'number';
+      if (has) {
+        acc[p].sums[m] = (acc[p].sums[m] || 0) + val;
+        acc[p].counts[m] = (acc[p].counts[m] || 0) + 1;
+      }
     });
     return acc;
   }, {});
 
   const datasets = Object.keys(perPlatform).map(p => ({
     label: p,
-    data: metrics.map(m => perPlatform[p][m] || 0)
+    data: metrics.map(m => {
+      const sums = perPlatform[p].sums[m] || 0;
+      const cnt = perPlatform[p].counts[m] || 0;
+      return cnt ? (sums / cnt) : 0;
+    })
   }));
 
   return {
