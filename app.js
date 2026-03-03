@@ -58,7 +58,7 @@ function getRowsForPlatform(platform) {
   return chartData.filter(r => r.platform === platform);
 }
 
-// units10K = units in thousands (unitsM * 1000)
+// units10K = units in thousands (unitsM * 100)
 function getMetricValue(row, metric) {
   if (!row) return 0;
   if (metric === "units10K") {
@@ -208,7 +208,7 @@ function radarComparePlatformss(year) {
   const labels = metrics;
 
   const perPlatform = rows.reduce((acc, r) => {
-    const p = r.platform || 'Unknown';
+    const p = r.platform;
     acc[p] = acc[p] || { sums: {}, counts: {} };
     metrics.forEach(m => {
       const val = getMetricValue(r, m);
