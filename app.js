@@ -18,7 +18,7 @@ const platforms = [...new Set(chartData.map(r => r.platform))];
 
 years.forEach(m => yearSelect.add(new Option(m, m)));
 platforms.forEach(h => platformSelect.add(new Option(h, h)));
-platformSelect.add(new Option("E-Sports", "E-Sports"));
+platformSelect.add(new Option("eSports", "eSports"));
 
 yearSelect.value = years[0];
 platformSelect.value = platforms[0];
@@ -54,7 +54,7 @@ function buildConfig(type, { year, platform, metric }) {
 }
 
 function getRowsForPlatform(platform) {
-  if (platform === "E-Sports") return chartData.filter(r => !!r.esports);
+  if (platform === "eSports") return chartData.filter(r => !!r.esports);
   return chartData.filter(r => r.platform === platform);
 }
 
@@ -79,7 +79,7 @@ function barByPlatforms(year, metric) {
     const val = getMetricValue(r, metric);
     acc[p] = (acc[p] || 0) + val;
     if (r.esports) {
-      acc['E-Sports'] = (acc['E-Sports'] || 0) + val;
+      acc['eSports'] = (acc['eSports'] || 0) + val;
     }
     return acc;
   }, {});
